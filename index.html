@@ -1,26 +1,31 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Chat en Vivo</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div id="chat-container">
-    <header>💬 Chat WhatsApp Style</header>
+    <header id="chat-header">
+      <div class="title">💬 Chat</div>
+      <div class="status" id="user-status">Desconectado</div>
+    </header>
 
-    <!-- setup de usuario -->
+    <!-- Setup de usuario -->
     <div id="user-setup">
-      <input id="username" type="text" placeholder="Tu nombre...">
+      <input id="username" type="text" placeholder="Tu nombre..." />
       <button id="join-btn">Entrar</button>
     </div>
 
-    <!-- chat -->
+    <!-- Mensajes -->
     <div id="messages"></div>
 
+    <!-- Input -->
     <div id="input-area" style="display:none;">
-      <input id="message-input" type="text" placeholder="Escribe un mensaje...">
-      <button id="send-btn">➤</button>
+      <input id="message-input" type="text" placeholder="Escribe un mensaje..." />
+      <button id="send-btn" title="Enviar">➤</button>
     </div>
   </div>
 
@@ -29,76 +34,87 @@
     const socket = io();
     let username = null;
 
-    const joinBtn = document.getElementById("join-btn");
-    const usernameInput = document.getElementById("username");
+    const userStatus = document.getElementById("user-status");
     const userSetup = document.getElementById("user-setup");
+    const usernameInput = document.getElementById("username");
+    const joinBtn = document.getElementById("join-btn");
 
     const messages = document.getElementById("messages");
     const inputArea = document.getElementById("input-area");
     const input = document.getElementById("message-input");
     const sendBtn = document.getElementById("send-btn");
 
+    // Entrar
     joinBtn.addEventListener("click", () => {
-      if (usernameInput.value.trim()) {
-        username = usernameInput.value.trim();
-        socket.emit("join", username);
-        userSetup.style.display = "none";
-        inputArea.style.display = "flex";
-      }
+      const name = usernameInput.value.trim();
+      if (!name) return;
+      username = name;
+      socket.emit("join", username);
+      userSetup.style.display = "none";
+      inputArea.style.display = "flex";
+      userStatus.textContent = `${username} — en línea`;
+      input.focus();
     });
 
-    sendBtn.addEventListener("click", () => {
-      if (input.value.trim()) {
-        socket.emit("chat message", { user: username, text: input.value });
-        input.value = "";
-      }
-    });
+    // Enviar
+    function send() {
+      const text = input.value.trim();
+      if (!text || !username) return;
+      socket.emit("chat message", { text });
+      input.value = "";
+    }
 
+    sendBtn.addEventListener("click", send);
     input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") sendBtn.click();
+      if (e.key === "Enter") send();
     });
 
-    // historial
+    // Historial inicial
     socket.on("chat history", (history) => {
-      history.forEach(msg => addMessage(msg, msg.user === username));
+      messages.innerHTML = "";
+      history.forEach((m) => addMessage(m, m.user === username));
+      messages.scrollTop = messages.scrollHeight;
     });
 
-    // nuevos mensajes
-    socket.on("chat message", (msg) => {
-      addMessage(msg, msg.user === username);
+    // Mensajes nuevos
+    socket.on("chat message", (m) => {
+      addMessage(m, m.user === username);
+      messages.scrollTop = messages.scrollHeight;
     });
 
-    // sistema
-    socket.on("system", (msg) => {
+    // Sistema
+    socket.on("system", (text) => {
       const div = document.createElement("div");
       div.className = "system";
-      div.textContent = msg;
+      div.textContent = text;
       messages.appendChild(div);
       messages.scrollTop = messages.scrollHeight;
     });
 
+    // Render burbuja
     function addMessage(msg, isYou) {
-      const div = document.createElement("div");
-      div.className = "message " + (isYou ? "you" : "other");
+      const wrapper = document.createElement("div");
+      wrapper.className = "message " + (isYou ? "you" : "other");
 
       const name = document.createElement("div");
       name.className = "name";
       name.textContent = msg.user;
 
-      const text = document.createElement("div");
-      text.className = "text";
-      text.textContent = msg.text;
+      const body = document.createElement("div");
+      body.className = "text";
+      body.textContent = msg.text;
 
       const time = document.createElement("div");
       time.className = "time";
-      time.textContent = new Date(msg.time).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+      time.textContent = new Date(msg.time).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
 
-      div.appendChild(name);
-      div.appendChild(text);
-      div.appendChild(time);
-
-      messages.appendChild(div);
-      messages.scrollTop = messages.scrollHeight;
+      wrapper.appendChild(name);
+      wrapper.appendChild(body);
+      wrapper.appendChild(time);
+      messages.appendChild(wrapper);
     }
   </script>
 </body>
