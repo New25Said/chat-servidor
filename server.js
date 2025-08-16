@@ -7,25 +7,40 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// servir el index.html en la raíz
+let history = []; // historial en memoria
+
+// servir index.html
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// manejar conexiones de socket
+// socket.io
 io.on("connection", (socket) => {
   console.log("Un usuario se conectó");
 
+  // enviar historial al nuevo usuario
+  socket.emit("chat history", history);
+
+  // nombre del usuario
+  socket.on("join", (username) => {
+    socket.username = username;
+    io.emit("system", `👤 ${username} se unió al chat`);
+  });
+
+  // mensajes
   socket.on("chat message", (msg) => {
-    io.emit("chat message", msg); // reenviar a todos
+    history.push(msg);
+    if (history.length > 50) history.shift(); // guarda solo los últimos 50
+    io.emit("chat message", msg);
   });
 
   socket.on("disconnect", () => {
-    console.log("Un usuario se desconectó");
+    if (socket.username) {
+      io.emit("system", `❌ ${socket.username} salió del chat`);
+    }
   });
 });
 
-// Render asigna el puerto en process.env.PORT
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Servidor chat listo en puerto ${PORT}`);
