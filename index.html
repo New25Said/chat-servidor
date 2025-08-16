@@ -1,112 +1,133 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>Chat en Vivo</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8">
+  <title>💬 Chat</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #ece5dd;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .chat-container {
+      width: 400px;
+      height: 600px;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+
+    .chat-header {
+      background: #075e54;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    #messages {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      list-style: none;
+      margin: 0;
+    }
+
+    #messages li {
+      background: #dcf8c6;
+      margin: 5px 0;
+      padding: 8px 12px;
+      border-radius: 7px;
+      max-width: 80%;
+      word-wrap: break-word;
+    }
+
+    .chat-footer {
+      display: flex;
+      border-top: 1px solid #ddd;
+      padding: 10px;
+      background: #f0f0f0;
+    }
+
+    #input {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      border-radius: 20px;
+      outline: none;
+    }
+
+    button {
+      background: #075e54;
+      border: none;
+      color: white;
+      padding: 8px 15px;
+      margin-left: 5px;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #0a786b;
+    }
+  </style>
 </head>
 <body>
-  <div id="chat-container">
-    <header id="chat-header">
-      <div class="title">💬 Chat</div>
-      <div class="status" id="user-status">Desconectado</div>
-    </header>
-
-    <div id="user-setup">
-      <input id="username" type="text" placeholder="Tu nombre..." />
-      <button id="join-btn">Entrar</button>
-    </div>
-
-    <div id="messages"></div>
-
-    <div id="input-area" style="display:none;">
-      <input id="message-input" type="text" placeholder="Escribe un mensaje..." />
-      <button id="send-btn" title="Enviar">➤</button>
+  <div class="chat-container">
+    <div class="chat-header">💬 Chat</div>
+    <ul id="messages"></ul>
+    <div class="chat-footer">
+      <input id="input" autocomplete="off" placeholder="Escribe un mensaje..." />
+      <button id="send">➤</button>
     </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-    let username = null;
-
-    const userStatus = document.getElementById("user-status");
-    const userSetup = document.getElementById("user-setup");
-    const usernameInput = document.getElementById("username");
-    const joinBtn = document.getElementById("join-btn");
-
+    const formInput = document.getElementById("input");
+    const sendButton = document.getElementById("send");
     const messages = document.getElementById("messages");
-    const inputArea = document.getElementById("input-area");
-    const input = document.getElementById("message-input");
-    const sendBtn = document.getElementById("send-btn");
 
-    joinBtn.addEventListener("click", () => {
-      const name = usernameInput.value.trim();
-      if (!name) return;
-      username = name;
-      socket.emit("join", username);
-      userSetup.style.display = "none";
-      inputArea.style.display = "flex";
-      userStatus.textContent = `${username} — en línea`;
-      input.focus();
-    });
+    function addMessage(msg) {
+      const li = document.createElement("li");
 
-    function send() {
-      const text = input.value.trim();
-      if (!text || !username) return;
-      socket.emit("chat message", { text });
-      input.value = "";
+      // ID abreviado
+      const user = msg.id ? msg.id.substring(0, 4) : "Anon";
+
+      // Hora local
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      li.innerHTML = `<strong>${user}</strong> [${time}]: ${msg.text}`;
+      messages.appendChild(li);
+      messages.scrollTop = messages.scrollHeight; // auto-scroll
     }
 
-    sendBtn.addEventListener("click", send);
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") send();
+    socket.on("chat message", (msg) => {
+      addMessage(msg);
     });
 
-    socket.on("chat history", (history) => {
-      messages.innerHTML = "";
-      history.forEach((m) => addMessage(m, m.user === username));
-      messages.scrollTop = messages.scrollHeight;
+    sendButton.addEventListener("click", () => {
+      if (formInput.value.trim() !== "") {
+        socket.emit("chat message", formInput.value);
+        formInput.value = "";
+      }
     });
 
-    socket.on("chat message", (m) => {
-      addMessage(m, m.user === username);
-      messages.scrollTop = messages.scrollHeight;
+    formInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        sendButton.click();
+      }
     });
-
-    socket.on("system", (text) => {
-      const div = document.createElement("div");
-      div.className = "system";
-      div.textContent = text;
-      messages.appendChild(div);
-      messages.scrollTop = messages.scrollHeight;
-    });
-
-    function addMessage(msg, isYou) {
-      const wrapper = document.createElement("div");
-      wrapper.className = "message " + (isYou ? "you" : "other");
-
-      const name = document.createElement("div");
-      name.className = "name";
-      name.textContent = msg.user;
-
-      const body = document.createElement("div");
-      body.className = "text";
-      body.textContent = msg.text;
-
-      const time = document.createElement("div");
-      time.className = "time";
-      time.textContent = new Date(msg.time).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-
-      wrapper.appendChild(name);
-      wrapper.appendChild(body);
-      wrapper.appendChild(time);
-      messages.appendChild(wrapper);
-    }
   </script>
 </body>
 </html>
