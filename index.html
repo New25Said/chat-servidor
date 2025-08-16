@@ -7,53 +7,48 @@
 </head>
 <body>
   <div id="chat-container">
-    <h2>💬 Chat en Vivo</h2>
+    <header>💬 Chat WhatsApp Style</header>
 
-    <!-- Setup de usuario -->
+    <!-- setup de usuario -->
     <div id="user-setup">
-      <input id="username" type="text" placeholder="Ingresa tu nombre">
+      <input id="username" type="text" placeholder="Tu nombre...">
       <button id="join-btn">Entrar</button>
     </div>
 
-    <!-- Caja del chat -->
-    <div id="chat-box" style="display:none;">
-      <div id="messages"></div>
-      <div style="display:flex; gap:8px; margin-top:10px;">
-        <input id="message-input" type="text" placeholder="Escribe un mensaje...">
-        <button id="send-btn">Enviar</button>
-      </div>
+    <!-- chat -->
+    <div id="messages"></div>
+
+    <div id="input-area" style="display:none;">
+      <input id="message-input" type="text" placeholder="Escribe un mensaje...">
+      <button id="send-btn">➤</button>
     </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
+    let username = null;
 
-    const usernameInput = document.getElementById("username");
     const joinBtn = document.getElementById("join-btn");
+    const usernameInput = document.getElementById("username");
     const userSetup = document.getElementById("user-setup");
-    const chatBox = document.getElementById("chat-box");
 
     const messages = document.getElementById("messages");
+    const inputArea = document.getElementById("input-area");
     const input = document.getElementById("message-input");
     const sendBtn = document.getElementById("send-btn");
 
-    let username = null;
-
-    // Entrar al chat
     joinBtn.addEventListener("click", () => {
       if (usernameInput.value.trim()) {
         username = usernameInput.value.trim();
         socket.emit("join", username);
-
         userSetup.style.display = "none";
-        chatBox.style.display = "flex";
+        inputArea.style.display = "flex";
       }
     });
 
-    // Enviar mensaje
     sendBtn.addEventListener("click", () => {
-      if (input.value && username) {
+      if (input.value.trim()) {
         socket.emit("chat message", { user: username, text: input.value });
         input.value = "";
       }
@@ -63,32 +58,48 @@
       if (e.key === "Enter") sendBtn.click();
     });
 
-    // Historial
+    // historial
     socket.on("chat history", (history) => {
-      messages.innerHTML = "";
-      history.forEach(msg => {
-        const div = document.createElement("div");
-        div.textContent = `${msg.user}: ${msg.text}`;
-        messages.appendChild(div);
-      });
+      history.forEach(msg => addMessage(msg, msg.user === username));
     });
 
-    // Mensajes nuevos
+    // nuevos mensajes
     socket.on("chat message", (msg) => {
+      addMessage(msg, msg.user === username);
+    });
+
+    // sistema
+    socket.on("system", (msg) => {
       const div = document.createElement("div");
-      div.textContent = `${msg.user}: ${msg.text}`;
+      div.className = "system";
+      div.textContent = msg;
       messages.appendChild(div);
       messages.scrollTop = messages.scrollHeight;
     });
 
-    // Notificaciones de sistema
-    socket.on("system", (msg) => {
+    function addMessage(msg, isYou) {
       const div = document.createElement("div");
-      div.style.fontStyle = "italic";
-      div.style.color = "gray";
-      div.textContent = msg;
+      div.className = "message " + (isYou ? "you" : "other");
+
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = msg.user;
+
+      const text = document.createElement("div");
+      text.className = "text";
+      text.textContent = msg.text;
+
+      const time = document.createElement("div");
+      time.className = "time";
+      time.textContent = new Date(msg.time).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+
+      div.appendChild(name);
+      div.appendChild(text);
+      div.appendChild(time);
+
       messages.appendChild(div);
-    });
+      messages.scrollTop = messages.scrollHeight;
+    }
   </script>
 </body>
 </html>
