@@ -23,8 +23,9 @@ io.on("connection", (socket) => {
   });
 });
 
-// Render asigna el puerto en process.env.PORT
+// 👇 ESTA LÍNEA ES LA IMPORTANTE
 const PORT = process.env.PORT || 3000;
+
 server.listen(PORT, () => {
   console.log(`✅ Servidor chat listo en puerto ${PORT}`);
 });
