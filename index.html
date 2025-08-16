@@ -3,44 +3,93 @@
 <head>
   <meta charset="UTF-8">
   <title>Chat en Vivo</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    #messages { list-style-type: none; padding: 0; }
-    #messages li { padding: 5px 10px; border-bottom: 1px solid #ccc; }
-    #form { display: flex; margin-top: 10px; }
-    #input { flex: 1; padding: 10px; }
-    button { padding: 10px; }
-  </style>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>💬 Chat en Vivo</h1>
-  <ul id="messages"></ul>
-  <form id="form">
-    <input id="input" autocomplete="off" placeholder="Escribe tu mensaje..." />
-    <button>Enviar</button>
-  </form>
+  <div id="chat-container">
+    <h2>💬 Chat en Vivo</h2>
+
+    <!-- nombre de usuario -->
+    <div id="user-setup">
+      <input id="username" type="text" placeholder="Ingresa tu nombre" />
+      <button id="join-btn">Entrar</button>
+    </div>
+
+    <!-- chat -->
+    <div id="chat-box" style="display:none;">
+      <div id="messages"></div>
+      <div style="display: flex; gap: 8px; margin-top: 10px;">
+        <input id="message-input" type="text" placeholder="Escribe un mensaje..." />
+        <button id="send-btn">Enviar</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
 
-    const form = document.getElementById("form");
-    const input = document.getElementById("input");
-    const messages = document.getElementById("messages");
+    const usernameInput = document.getElementById("username");
+    const joinBtn = document.getElementById("join-btn");
+    const userSetup = document.getElementById("user-setup");
+    const chatBox = document.getElementById("chat-box");
 
-    form.addEventListener("submit", function(e) {
-      e.preventDefault();
-      if (input.value) {
-        socket.emit("chat message", input.value);
+    const messages = document.getElementById("messages");
+    const input = document.getElementById("message-input");
+    const sendBtn = document.getElementById("send-btn");
+
+    let username = null;
+
+    // Entrar al chat
+    joinBtn.addEventListener("click", () => {
+      if (usernameInput.value.trim()) {
+        username = usernameInput.value.trim();
+        socket.emit("join", username);
+
+        userSetup.style.display = "none";
+        chatBox.style.display = "flex";
+      }
+    });
+
+    // Enviar mensaje
+    sendBtn.addEventListener("click", () => {
+      if (input.value && username) {
+        socket.emit("chat message", { user: username, text: input.value });
         input.value = "";
       }
     });
 
-    socket.on("chat message", function(msg) {
-      const item = document.createElement("li");
-      item.textContent = msg;
-      messages.appendChild(item);
-      window.scrollTo(0, document.body.scrollHeight);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        sendBtn.click();
+      }
+    });
+
+    // Recibir historial al conectar
+    socket.on("chat history", (history) => {
+      messages.innerHTML = "";
+      history.forEach(msg => {
+        const div = document.createElement("div");
+        div.textContent = `${msg.user}: ${msg.text}`;
+        messages.appendChild(div);
+      });
+    });
+
+    // Recibir mensajes nuevos
+    socket.on("chat message", (msg) => {
+      const div = document.createElement("div");
+      div.textContent = `${msg.user}: ${msg.text}`;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    });
+
+    // Notificaciones de sistema
+    socket.on("system", (msg) => {
+      const div = document.createElement("div");
+      div.style.fontStyle = "italic";
+      div.style.color = "gray";
+      div.textContent = msg;
+      messages.appendChild(div);
     });
   </script>
 </body>
