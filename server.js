@@ -6,37 +6,25 @@ const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  // Si lo necesitas detrás de proxies/CDN
-  cors: { origin: "*" }
-});
+const io = new Server(server);
 
-// ✅ Servir archivos estáticos (index.html, styles.css, imágenes, etc.)
-app.use(express.static(__dirname, {
-  setHeaders: (res, filePath) => {
-    // cache suave para assets estáticos
-    if (/\.(css|js|png|jpg|jpeg|gif|svg)$/.test(filePath)) {
-      res.setHeader("Cache-Control", "public, max-age=3600");
-    }
-  }
-}));
+// ✅ Sirve archivos estáticos (index.html, styles.css, etc.)
+app.use(express.static(__dirname));
 
-// Ruta principal (opcional; express.static ya sirve index.html si existe)
+// 🗂️ Historial en memoria (últimos 100 mensajes)
+const HISTORY_LIMIT = 100;
+const history = []; // { user, text, time }
+
+// Ruta raíz (opcional; express.static ya sirve index.html si existe)
 app.get("/", (_req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// 🗂️ Historial simple en memoria
-const history = [];            // { user, text, time }
-const HISTORY_LIMIT = 100;
-
 io.on("connection", (socket) => {
-  console.log("🔌 Usuario conectado:", socket.id);
-
   // Enviar historial al recién conectado
   socket.emit("chat history", history);
 
-  // Usuario envía su nombre
+  // User envía su nombre
   socket.on("join", (username) => {
     socket.data.username = String(username || "Anónimo").slice(0, 20);
     io.emit("system", `👋 ${socket.data.username} se unió al chat`);
@@ -44,18 +32,14 @@ io.on("connection", (socket) => {
 
   // Mensajes del chat
   socket.on("chat message", (msg) => {
-    // Normaliza y valida
     const user = socket.data.username || "Anónimo";
-    const text = String(msg?.text ?? "").slice(0, 500).trim();
+    const text = String(msg?.text ?? "").trim().slice(0, 500);
     if (!text) return;
 
     const payload = { user, text, time: Date.now() };
-
-    // Guarda en historial (máx. 100)
     history.push(payload);
     if (history.length > HISTORY_LIMIT) history.shift();
 
-    // Reenvía a todos
     io.emit("chat message", payload);
   });
 
@@ -63,11 +47,10 @@ io.on("connection", (socket) => {
     if (socket.data.username) {
       io.emit("system", `👋 ${socket.data.username} salió del chat`);
     }
-    console.log("❌ Usuario desconectado:", socket.id);
   });
 });
 
-// Render asigna el puerto en process.env.PORT
+// ⚠️ Render asigna el puerto en process.env.PORT
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`✅ Servidor chat listo en puerto ${PORT}`);
