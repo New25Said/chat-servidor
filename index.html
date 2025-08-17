@@ -58,9 +58,9 @@ const createGroupBtn = document.getElementById("create-group-btn");
 socket.on("connect", () => {
   if (nickname) {
     socket.emit("set nickname", nickname);
-    nicknameModal.style.display = "none";
+    nicknameModal.style.display = "none"; // siempre oculto si hay nick
   } else {
-    nicknameModal.style.display = "flex";
+    nicknameModal.style.display = "flex"; // mostrar solo si no hay nick
   }
 });
 
